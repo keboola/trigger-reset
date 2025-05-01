@@ -22,9 +22,12 @@ def get_latest_trigger_tables(configuration_id, url, headers):
 
     # Find the last trigger id
     trigger_ids = [int(item.get('id')) for item in response_g]
+    if not trigger_ids:
+        return []  # Return empty list if no triggers exist
     last_trigger = max(trigger_ids)
 
     # Find last trigger tables
+    trigger_tables = []
     for item in response_g:
         if item['id'] == str(last_trigger):
             trigger_tables0 = item['tables']
@@ -105,13 +108,16 @@ def main():
             trigger_tables.append(i['tableId'])
     else:
         trigger_tables = get_latest_trigger_tables(configuration_id=configuration_id, url=url, headers=headers)
+        if not trigger_tables and mode == 'reset':
+            print("No existing triggers found, skipping trigger creation")
+            mode = 'delete'  # Change mode to delete only
 
     # Delete all triggers
     if mode != 'create':
         del_triggers = delete_all_triggers(configuration_id=configuration_id, url=url, headers=headers)
 
-    # Create a mew trigger
-    if mode != 'delete':
+    # Create a new trigger
+    if mode != 'delete' and trigger_tables:
         created_trigger = create_new_trigger(configuration_id=configuration_id, url=url, headers=headers,
                                              token_id=my_token_id,
                                              tables=trigger_tables)
@@ -121,7 +127,7 @@ def main():
     elif mode == 'delete':
         output = del_triggers
     else:
-        output = del_triggers.append(created_trigger)
+        output = pd.concat([del_triggers, created_trigger], ignore_index=True)
     output['TIMESTAMP'] = datetime.now(pytz.timezone('Europe/Prague')).strftime("%Y-%m-%d %H:%M:%S")
     output.to_csv(path, index=False)
 
