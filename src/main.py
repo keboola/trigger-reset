@@ -17,7 +17,7 @@ def get_latest_trigger_tables(configuration_id, url, headers):
     """Returns the list of tables from the latest event trigger."""
 
     # Get all triggers info
-    url_g = url + f'/?component=orchestrator&configurationId={configuration_id}'
+    url_g = url + f'/?component=keboola.orchestrator&configurationId={configuration_id}'
     response_g = requests.request("GET", url_g, headers=headers).json()
 
     # Find the last trigger id
@@ -35,7 +35,7 @@ def get_latest_trigger_tables(configuration_id, url, headers):
 def delete_all_triggers(configuration_id, url, headers):
     """Deletes all triggers of the configuration."""
     # Find all trigger ids
-    url_g = url + f'/?component=orchestrator&configurationId={configuration_id}'
+    url_g = url + f'/?component=keboola.orchestrator&configurationId={configuration_id}'
     response_g = requests.request("GET", url_g, headers=headers).json()
 
     column_names = ['CONFIGURATION_ID', 'EVENT', 'TRIGGER_ID', 'TRIGGER_INFO']
@@ -63,7 +63,7 @@ def create_new_trigger(configuration_id, url, headers, token_id, tables):
     trigger_tables_values = ''
     for i in range(len(tables)):
         trigger_tables_values += f'&tableIds%5B{i}%5D=' + tables[i]
-    values = f'runWithTokenId={token_id}&component=orchestrator&configurationId={configuration_id}&coolDownPeriodMinutes=5{trigger_tables_values}'
+    values = f'runWithTokenId={token_id}&component=keboola.orchestrator&configurationId={configuration_id}&coolDownPeriodMinutes=5{trigger_tables_values}'
     response = requests.request("POST", url, headers=headers, data=values)
 
     item = json.loads(response.text)
