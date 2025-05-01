@@ -17,14 +17,17 @@ def get_latest_trigger_tables(configuration_id, url, headers):
     """Returns the list of tables from the latest event trigger."""
 
     # Get all triggers info
-    url_g = url + f'/?component=orchestrator&configurationId={configuration_id}'
+    url_g = url + f'/?component=keboola.orchestrator&configurationId={configuration_id}'
     response_g = requests.request("GET", url_g, headers=headers).json()
 
     # Find the last trigger id
     trigger_ids = [int(item.get('id')) for item in response_g]
+    if not trigger_ids:
+        return []  # Return empty list if no triggers exist
     last_trigger = max(trigger_ids)
 
     # Find last trigger tables
+    trigger_tables = []
     for item in response_g:
         if item['id'] == str(last_trigger):
             trigger_tables0 = item['tables']
@@ -35,7 +38,7 @@ def get_latest_trigger_tables(configuration_id, url, headers):
 def delete_all_triggers(configuration_id, url, headers):
     """Deletes all triggers of the configuration."""
     # Find all trigger ids
-    url_g = url + f'/?component=orchestrator&configurationId={configuration_id}'
+    url_g = url + f'/?component=keboola.orchestrator&configurationId={configuration_id}'
     response_g = requests.request("GET", url_g, headers=headers).json()
 
     column_names = ['CONFIGURATION_ID', 'EVENT', 'TRIGGER_ID', 'TRIGGER_INFO']
@@ -44,14 +47,14 @@ def delete_all_triggers(configuration_id, url, headers):
     for item in response_g:
         output_dict = {'CONFIGURATION_ID': item['configurationId'], 'EVENT': 'DELETED', 'TRIGGER_ID': item['id'],
                        'TRIGGER_INFO': str(item)}
-        deleted_triggers = deleted_triggers.append(pd.DataFrame(data=output_dict, index=[0]))
+        deleted_triggers = pd.concat([deleted_triggers, pd.DataFrame(data=output_dict, index=[0])], ignore_index=True)
 
     # Delete all triggers
     for id in deleted_triggers.TRIGGER_ID:
         url_g = url + "/" + str(id)
         response_g = requests.request("DELETE", url_g, headers=headers)
 
-    return (deleted_triggers)
+    return deleted_triggers
 
 
 def create_new_trigger(configuration_id, url, headers, token_id, tables):
@@ -63,7 +66,7 @@ def create_new_trigger(configuration_id, url, headers, token_id, tables):
     trigger_tables_values = ''
     for i in range(len(tables)):
         trigger_tables_values += f'&tableIds%5B{i}%5D=' + tables[i]
-    values = f'runWithTokenId={token_id}&component=orchestrator&configurationId={configuration_id}&coolDownPeriodMinutes=5{trigger_tables_values}'
+    values = f'runWithTokenId={token_id}&component=keboola.orchestrator&configurationId={configuration_id}&coolDownPeriodMinutes=5{trigger_tables_values}'
     response = requests.request("POST", url, headers=headers, data=values)
 
     item = json.loads(response.text)
@@ -71,9 +74,9 @@ def create_new_trigger(configuration_id, url, headers, token_id, tables):
     output_dict = {'CONFIGURATION_ID': item['configurationId'], 'EVENT': 'CREATED', 'TRIGGER_ID': item['id'],
                    'TRIGGER_INFO': str(item)}
 
-    created_trigger = created_trigger.append(pd.DataFrame(data=output_dict, index=[0]))
+    created_trigger = pd.concat([created_trigger, pd.DataFrame(data=output_dict, index=[0])], ignore_index=True)
 
-    return (created_trigger)
+    return created_trigger
 
 
 def main():
@@ -105,13 +108,16 @@ def main():
             trigger_tables.append(i['tableId'])
     else:
         trigger_tables = get_latest_trigger_tables(configuration_id=configuration_id, url=url, headers=headers)
+        if not trigger_tables and mode == 'reset':
+            print("No existing triggers found, skipping trigger creation")
+            mode = 'delete'  # Change mode to delete only
 
     # Delete all triggers
     if mode != 'create':
         del_triggers = delete_all_triggers(configuration_id=configuration_id, url=url, headers=headers)
 
-    # Create a mew trigger
-    if mode != 'delete':
+    # Create a new trigger
+    if mode != 'delete' and trigger_tables:
         created_trigger = create_new_trigger(configuration_id=configuration_id, url=url, headers=headers,
                                              token_id=my_token_id,
                                              tables=trigger_tables)
@@ -121,7 +127,7 @@ def main():
     elif mode == 'delete':
         output = del_triggers
     else:
-        output = del_triggers.append(created_trigger)
+        output = pd.concat([del_triggers, created_trigger], ignore_index=True)
     output['TIMESTAMP'] = datetime.now(pytz.timezone('Europe/Prague')).strftime("%Y-%m-%d %H:%M:%S")
     output.to_csv(path, index=False)
 

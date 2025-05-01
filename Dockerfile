@@ -2,5 +2,6 @@
 FROM quay.io/keboola/docker-custom-python:latest
 COPY . /code/
 WORKDIR /data/
+RUN pip install --upgrade pip
 RUN pip install -r /code/requirements.txt
 CMD ["python", "-u", "/code/src/main.py"]
