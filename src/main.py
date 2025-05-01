@@ -47,14 +47,14 @@ def delete_all_triggers(configuration_id, url, headers):
     for item in response_g:
         output_dict = {'CONFIGURATION_ID': item['configurationId'], 'EVENT': 'DELETED', 'TRIGGER_ID': item['id'],
                        'TRIGGER_INFO': str(item)}
-        deleted_triggers = deleted_triggers.append(pd.DataFrame(data=output_dict, index=[0]))
+        deleted_triggers = pd.concat([deleted_triggers, pd.DataFrame(data=output_dict, index=[0])], ignore_index=True)
 
     # Delete all triggers
     for id in deleted_triggers.TRIGGER_ID:
         url_g = url + "/" + str(id)
         response_g = requests.request("DELETE", url_g, headers=headers)
 
-    return (deleted_triggers)
+    return deleted_triggers
 
 
 def create_new_trigger(configuration_id, url, headers, token_id, tables):
@@ -74,9 +74,9 @@ def create_new_trigger(configuration_id, url, headers, token_id, tables):
     output_dict = {'CONFIGURATION_ID': item['configurationId'], 'EVENT': 'CREATED', 'TRIGGER_ID': item['id'],
                    'TRIGGER_INFO': str(item)}
 
-    created_trigger = created_trigger.append(pd.DataFrame(data=output_dict, index=[0]))
+    created_trigger = pd.concat([created_trigger, pd.DataFrame(data=output_dict, index=[0])], ignore_index=True)
 
-    return (created_trigger)
+    return created_trigger
 
 
 def main():
